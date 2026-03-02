@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
-import LogViewer from "../components/LogViewer";
 import Modal from "../components/Modal";
 
 export default function Containers() {
+  const navigate = useNavigate();
   const [containers, setContainers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
@@ -140,202 +141,82 @@ export default function Containers() {
                   const shortId = c.Id.substring(0, 12);
 
                   return (
-                    <>
-                      <tr
-                        key={c.Id}
-                        style={{ cursor: "pointer" }}
-                        onClick={() => toggleExpand(c.Id)}
-                      >
-                        <td>
-                          <div className="container-name">
-                            {name || shortId}
-                          </div>
-                          <div className="container-id">{shortId}</div>
-                        </td>
-                        <td>
-                          <span className="truncate" title={c.Image}>
-                            {c.Image}
-                          </span>
-                        </td>
-                        <td>
-                          <span className={`status-badge ${c.State}`}>
-                            <span className="status-dot" />
-                            {c.State}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="text-xs text-muted">
-                            {formatPorts(c.Ports)}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="text-xs text-muted">
-                            {timeAgo(c.Created)}
-                          </span>
-                        </td>
-                        <td>
-                          <div
-                            className="action-btns"
-                            style={{ justifyContent: "flex-end" }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {isRunning ? (
-                              <>
-                                <button
-                                  className="btn btn-ghost btn-icon btn-sm"
-                                  title="Stop"
-                                  disabled={!!actionLoading[c.Id]}
-                                  onClick={() => doAction(c.Id, "stop")}
-                                >
-                                  ⏹
-                                </button>
-                                <button
-                                  className="btn btn-ghost btn-icon btn-sm"
-                                  title="Restart"
-                                  disabled={!!actionLoading[c.Id]}
-                                  onClick={() => doAction(c.Id, "restart")}
-                                >
-                                  🔄
-                                </button>
-                              </>
-                            ) : (
+                    <tr
+                      key={c.Id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => navigate(`/containers/${c.Id}`)}
+                    >
+                      <td>
+                        <div className="container-name">{name || shortId}</div>
+                        <div className="container-id">{shortId}</div>
+                      </td>
+                      <td>
+                        <span className="truncate" title={c.Image}>
+                          {c.Image}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${c.State}`}>
+                          <span className="status-dot" />
+                          {c.State}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="text-xs text-muted">
+                          {formatPorts(c.Ports)}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="text-xs text-muted">
+                          {timeAgo(c.Created)}
+                        </span>
+                      </td>
+                      <td>
+                        <div
+                          className="action-btns"
+                          style={{ justifyContent: "flex-end" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {isRunning ? (
+                            <>
                               <button
-                                className="btn btn-success btn-icon btn-sm"
-                                title="Start"
+                                className="btn btn-ghost btn-icon btn-sm"
+                                title="Stop"
                                 disabled={!!actionLoading[c.Id]}
-                                onClick={() => doAction(c.Id, "start")}
+                                onClick={() => doAction(c.Id, "stop")}
                               >
-                                ▶
+                                ⏹
                               </button>
-                            )}
+                              <button
+                                className="btn btn-ghost btn-icon btn-sm"
+                                title="Restart"
+                                disabled={!!actionLoading[c.Id]}
+                                onClick={() => doAction(c.Id, "restart")}
+                              >
+                                🔄
+                              </button>
+                            </>
+                          ) : (
                             <button
-                              className="btn btn-danger btn-icon btn-sm"
-                              title="Remove"
+                              className="btn btn-success btn-icon btn-sm"
+                              title="Start"
                               disabled={!!actionLoading[c.Id]}
-                              onClick={() => setConfirmRemove(c)}
+                              onClick={() => doAction(c.Id, "start")}
                             >
-                              🗑
+                              ▶
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {expandedId === c.Id && (
-                        <tr key={`${c.Id}-detail`}>
-                          <td colSpan="6" style={{ padding: 0 }}>
-                            <div className="detail-panel">
-                              <div className="detail-tabs">
-                                <button
-                                  className={`detail-tab ${detailTab === "logs" ? "active" : ""}`}
-                                  onClick={() => setDetailTab("logs")}
-                                >
-                                  📋 Logs
-                                </button>
-                                <button
-                                  className={`detail-tab ${detailTab === "inspect" ? "active" : ""}`}
-                                  onClick={() => setDetailTab("inspect")}
-                                >
-                                  🔍 Inspect
-                                </button>
-                              </div>
-                              <div className="detail-content">
-                                {detailTab === "logs" && (
-                                  <LogViewer
-                                    containerId={c.Id}
-                                    containerName={name}
-                                  />
-                                )}
-                                {detailTab === "inspect" && inspectData && (
-                                  <div className="detail-grid">
-                                    <span className="detail-key">ID</span>
-                                    <span className="detail-value">
-                                      {inspectData.Id}
-                                    </span>
-
-                                    <span className="detail-key">Image</span>
-                                    <span className="detail-value">
-                                      {inspectData.Config?.Image}
-                                    </span>
-
-                                    <span className="detail-key">Command</span>
-                                    <span
-                                      className="detail-value"
-                                      style={{ fontFamily: "monospace" }}
-                                    >
-                                      {inspectData.Config?.Cmd?.join(" ") ||
-                                        inspectData.Config?.Entrypoint?.join(
-                                          " ",
-                                        )}
-                                    </span>
-
-                                    <span className="detail-key">
-                                      Working Dir
-                                    </span>
-                                    <span className="detail-value">
-                                      {inspectData.Config?.WorkingDir || "/"}
-                                    </span>
-
-                                    <span className="detail-key">
-                                      Network Mode
-                                    </span>
-                                    <span className="detail-value">
-                                      {inspectData.HostConfig?.NetworkMode}
-                                    </span>
-
-                                    <span className="detail-key">
-                                      Restart Policy
-                                    </span>
-                                    <span className="detail-value">
-                                      {
-                                        inspectData.HostConfig?.RestartPolicy
-                                          ?.Name
-                                      }
-                                    </span>
-
-                                    <span className="detail-key">Created</span>
-                                    <span className="detail-value">
-                                      {new Date(
-                                        inspectData.Created,
-                                      ).toLocaleString()}
-                                    </span>
-
-                                    {inspectData.Config?.Env && (
-                                      <>
-                                        <span className="detail-key">
-                                          Env Vars
-                                        </span>
-                                        <span
-                                          className="detail-value"
-                                          style={{
-                                            fontSize: "12px",
-                                            fontFamily: "monospace",
-                                          }}
-                                        >
-                                          {inspectData.Config.Env.slice(
-                                            0,
-                                            10,
-                                          ).map((env, i) => (
-                                            <div key={i}>{env}</div>
-                                          ))}
-                                          {inspectData.Config.Env.length >
-                                            10 && (
-                                            <div className="text-muted">
-                                              ... and{" "}
-                                              {inspectData.Config.Env.length -
-                                                10}{" "}
-                                              more
-                                            </div>
-                                          )}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
+                          )}
+                          <button
+                            className="btn btn-danger btn-icon btn-sm"
+                            title="Remove"
+                            disabled={!!actionLoading[c.Id]}
+                            onClick={() => setConfirmRemove(c)}
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
