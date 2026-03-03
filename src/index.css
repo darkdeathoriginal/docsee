@@ -89,12 +89,13 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
 }
 
-/* ==================== LAYOUT ==================== */
 .app-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -105,6 +106,8 @@ body {
   background: var(--bg-primary);
   scrollbar-width: thin;
   scrollbar-color: var(--bg-tertiary) transparent;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .main-content::-webkit-scrollbar {
@@ -1044,6 +1047,7 @@ body {
   .data-table {
     display: block;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .page-header h2 {
