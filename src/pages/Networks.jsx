@@ -136,11 +136,12 @@ export default function Networks() {
                         >
                           {!isDefault && (
                             <button
-                              className="btn btn-danger btn-sm"
+                              className="btn btn-danger btn-icon btn-sm"
+                              title="Remove"
                               onClick={() => setConfirmRemove(n)}
                               disabled={removing[n.Id]}
                             >
-                              🗑 Remove
+                              🗑
                             </button>
                           )}
                         </div>

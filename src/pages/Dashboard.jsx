@@ -101,7 +101,7 @@ export default function Dashboard() {
           <div className="card-header">
             <h3>🖥️ System Information</h3>
           </div>
-          <div className="card-body" style={{ padding: "20px" }}>
+          <div className="card-body" style={{ padding: "var(--radius-lg)" }}>
             <div className="detail-grid">
               <span className="detail-key">Docker Version</span>
               <span className="detail-value">{systemInfo.ServerVersion}</span>

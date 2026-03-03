@@ -164,13 +164,15 @@ export default function Images() {
                         <div
                           className="action-btns"
                           style={{ justifyContent: "flex-end" }}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => setConfirmRemove(img)}
+                            className="btn btn-danger btn-icon btn-sm"
+                            title="Remove"
                             disabled={removing[img.Id]}
+                            onClick={() => setConfirmRemove(img)}
                           >
-                            🗑 Remove
+                            🗑
                           </button>
                         </div>
                       </td>

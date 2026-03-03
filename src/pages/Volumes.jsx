@@ -125,11 +125,12 @@ export default function Volumes() {
                         style={{ justifyContent: "flex-end" }}
                       >
                         <button
-                          className="btn btn-danger btn-sm"
+                          className="btn btn-danger btn-icon btn-sm"
+                          title="Remove"
                           onClick={() => setConfirmRemove(v)}
                           disabled={removing[v.Name]}
                         >
-                          🗑 Remove
+                          🗑
                         </button>
                       </div>
                     </td>
