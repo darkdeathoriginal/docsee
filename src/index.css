@@ -1057,6 +1057,17 @@ body {
   .action-btns {
     flex-wrap: wrap;
   }
+
+  .hide-on-mobile {
+    display: none;
+  }
+
+  .btn.btn-icon-mobile {
+    padding: 7px;
+    width: 34px;
+    height: 34px;
+    justify-content: center;
+  }
 }
 
 /* ==================== UTILITY ==================== */

@@ -187,35 +187,42 @@ export default function ContainerDetail() {
             {isRunning ? (
               <>
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-ghost btn-icon-mobile"
                   disabled={!!actionLoading}
                   onClick={() => doAction("stop")}
+                  title="Stop"
                 >
-                  {actionLoading === "stop" ? "⏳" : "⏹"} Stop
+                  {actionLoading === "stop" ? "⏳" : "⏹"}{" "}
+                  <span className="hide-on-mobile">Stop</span>
                 </button>
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-ghost btn-icon-mobile"
                   disabled={!!actionLoading}
                   onClick={() => doAction("restart")}
+                  title="Restart"
                 >
-                  {actionLoading === "restart" ? "⏳" : "🔄"} Restart
+                  {actionLoading === "restart" ? "⏳" : "🔄"}{" "}
+                  <span className="hide-on-mobile">Restart</span>
                 </button>
               </>
             ) : (
               <button
-                className="btn btn-success"
+                className="btn btn-success btn-icon-mobile"
                 disabled={!!actionLoading}
                 onClick={() => doAction("start")}
+                title="Start"
               >
-                {actionLoading === "start" ? "⏳" : "▶"} Start
+                {actionLoading === "start" ? "⏳" : "▶"}{" "}
+                <span className="hide-on-mobile">Start</span>
               </button>
             )}
             <button
-              className="btn btn-danger"
+              className="btn btn-danger btn-icon-mobile"
               disabled={!!actionLoading}
               onClick={() => setConfirmRemove(true)}
+              title="Remove"
             >
-              🗑 Remove
+              🗑 <span className="hide-on-mobile">Remove</span>
             </button>
           </div>
         </div>
