@@ -92,6 +92,11 @@ export const api = {
     return new EventSource(`${API_BASE}/containers/${id}/stats?token=${token}`);
   },
 
+  streamSystemStats: () => {
+    const token = getToken();
+    return new EventSource(`${API_BASE}/system/stats?token=${token}`);
+  },
+
   // Pull with SSE (returns EventSource-like interface)
   pullImage: (image) => {
     const token = getToken();
