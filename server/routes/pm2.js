@@ -6,11 +6,31 @@ const execAsync = promisify(exec);
 
 const router = Router();
 
+// Helper to strip ANSI escape codes
+function stripAnsi(str) {
+  return (
+    str
+      // eslint-disable-next-line no-control-regex
+      .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
+      // eslint-disable-next-line no-control-regex
+      .replace(/\x1B\][^\x07]*\x07/g, "")
+  );
+}
+
 // Helper to run pm2 jlist and parse output
 async function getPm2List() {
   try {
-    const { stdout } = await execAsync("pm2 jlist");
-    return JSON.parse(stdout);
+    const { stdout } = await execAsync("pm2 jlist", {
+      // eslint-disable-next-line no-undef
+      env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" },
+    });
+    // Strip any ANSI codes and find the JSON array in the output
+    const clean = stripAnsi(stdout).trim();
+    const jsonStart = clean.indexOf("[");
+    if (jsonStart === -1) {
+      return [];
+    }
+    return JSON.parse(clean.slice(jsonStart));
   } catch (err) {
     // If pm2 is not installed or not running
     if (
@@ -57,8 +77,7 @@ router.get("/", async (req, res) => {
 // Get detailed info for a specific process
 router.get("/:id/describe", async (req, res) => {
   try {
-    const { stdout } = await execAsync(`pm2 jlist`);
-    const processes = JSON.parse(stdout);
+    const processes = await getPm2List();
     const proc = processes.find(
       (p) => String(p.pm_id) === req.params.id || p.name === req.params.id,
     );
