@@ -7,7 +7,9 @@ services:
       - "${PORT:-3001}:${PORT:-3001}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}/.pm2:/host-pm2
     environment:
       - DOCSEE_PASSWORD=${DOCSEE_PASSWORD:-admin123}
       - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
       - PORT=${PORT:-3001}
+      - PM2_HOME=/host-pm2
