@@ -143,11 +143,49 @@ router.delete("/:id", async (req, res) => {
 // Get logs for a process
 router.get("/:id/logs", async (req, res) => {
   try {
-    const lines = req.query.lines || 100;
-    const { stdout } = await execAsync(
-      `pm2 logs ${req.params.id} --nostream --lines ${lines} --raw 2>&1`,
+    const lines = parseInt(req.query.lines) || 100;
+    const processes = await getPm2List();
+    const proc = processes.find(
+      (p) => String(p.pm_id) === req.params.id || p.name === req.params.id,
     );
-    res.json({ logs: stdout });
+
+    if (!proc) {
+      return res.status(404).json({ error: "Process not found" });
+    }
+
+    const outLogPath = proc.pm2_env?.pm_out_log_path;
+    const errLogPath = proc.pm2_env?.pm_err_log_path;
+    let logs = "";
+
+    // Read out log
+    if (outLogPath) {
+      try {
+        const { stdout: tail } = await execAsync(
+          `tail -n ${lines} "${outLogPath}"`,
+        );
+        if (tail.trim()) {
+          logs += "=== stdout ===\n" + tail;
+        }
+      } catch {
+        /* file may not exist yet */
+      }
+    }
+
+    // Read err log
+    if (errLogPath) {
+      try {
+        const { stdout: tail } = await execAsync(
+          `tail -n ${lines} "${errLogPath}"`,
+        );
+        if (tail.trim()) {
+          logs += (logs ? "\n\n" : "") + "=== stderr ===\n" + tail;
+        }
+      } catch {
+        /* file may not exist yet */
+      }
+    }
+
+    res.json({ logs: logs || "No logs available" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
