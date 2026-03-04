@@ -153,8 +153,23 @@ router.get("/:id/logs", async (req, res) => {
       return res.status(404).json({ error: "Process not found" });
     }
 
-    const outLogPath = proc.pm2_env?.pm_out_log_path;
-    const errLogPath = proc.pm2_env?.pm_err_log_path;
+    // PM2 stores paths relative to original PM2_HOME on the host.
+    // In Docker, host's ~/.pm2 is mounted to /host-pm2, so remap paths.
+    // eslint-disable-next-line no-undef
+    const pm2Home = process.env.PM2_HOME || "";
+    const remapPath = (logPath) => {
+      if (!logPath) return null;
+      // If PM2_HOME is set and the log path doesn't start with it,
+      // extract the filename and look in PM2_HOME/logs/
+      if (pm2Home) {
+        const basename = logPath.split("/").pop();
+        return `${pm2Home}/logs/${basename}`;
+      }
+      return logPath;
+    };
+
+    const outLogPath = remapPath(proc.pm2_env?.pm_out_log_path);
+    const errLogPath = remapPath(proc.pm2_env?.pm_err_log_path);
     let logs = "";
 
     // Read out log
