@@ -42,6 +42,10 @@ export default function systemRouter(docker) {
         closed = true;
       });
 
+      // Get host total memory once
+      const info = await docker.info();
+      const hostMemTotal = info.MemTotal || 0;
+
       const poll = async () => {
         if (closed) return;
         try {
@@ -50,7 +54,7 @@ export default function systemRouter(docker) {
           });
           if (containers.length === 0) {
             res.write(
-              `data: ${JSON.stringify({ cpu: "0.00", memory: 0, memoryLimit: 0, memoryPercent: "0.00", netIn: 0, netOut: 0, containerCount: 0 })}\n\n`,
+              `data: ${JSON.stringify({ cpu: "0.00", memory: 0, memoryLimit: hostMemTotal, memoryPercent: "0.00", netIn: 0, netOut: 0, containerCount: 0 })}\n\n`,
             );
           } else {
             const statsPromises = containers.map(async (c) => {
@@ -71,7 +75,6 @@ export default function systemRouter(docker) {
                     : 0;
 
                 const memUsage = stat.memory_stats.usage || 0;
-                const memLimit = stat.memory_stats.limit || 0;
 
                 let netIn = 0,
                   netOut = 0;
@@ -82,12 +85,11 @@ export default function systemRouter(docker) {
                   });
                 }
 
-                return { cpuPercent, memUsage, memLimit, netIn, netOut };
+                return { cpuPercent, memUsage, netIn, netOut };
               } catch {
                 return {
                   cpuPercent: 0,
                   memUsage: 0,
-                  memLimit: 0,
                   netIn: 0,
                   netOut: 0,
                 };
@@ -98,11 +100,6 @@ export default function systemRouter(docker) {
 
             const totalCpu = results.reduce((sum, r) => sum + r.cpuPercent, 0);
             const totalMem = results.reduce((sum, r) => sum + r.memUsage, 0);
-            const maxMemLimit = Math.max(...results.map((r) => r.memLimit));
-            const totalMemLimit = results.reduce(
-              (sum, r) => sum + r.memLimit,
-              0,
-            );
             const totalNetIn = results.reduce((sum, r) => sum + r.netIn, 0);
             const totalNetOut = results.reduce((sum, r) => sum + r.netOut, 0);
 
@@ -110,10 +107,10 @@ export default function systemRouter(docker) {
               `data: ${JSON.stringify({
                 cpu: totalCpu.toFixed(2),
                 memory: totalMem,
-                memoryLimit: totalMemLimit,
+                memoryLimit: hostMemTotal,
                 memoryPercent:
-                  totalMemLimit > 0
-                    ? ((totalMem / totalMemLimit) * 100).toFixed(2)
+                  hostMemTotal > 0
+                    ? ((totalMem / hostMemTotal) * 100).toFixed(2)
                     : "0.00",
                 netIn: totalNetIn,
                 netOut: totalNetOut,
