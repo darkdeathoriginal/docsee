@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Images from "./pages/Images";
 import Login from "./pages/Login";
 import Networks from "./pages/Networks";
+import PM2 from "./pages/PM2";
 import Volumes from "./pages/Volumes";
 
 function App() {
@@ -75,6 +76,7 @@ function App() {
             <Route path="/images" element={<Images />} />
             <Route path="/volumes" element={<Volumes />} />
             <Route path="/networks" element={<Networks />} />
+            <Route path="/pm2" element={<PM2 />} />
             <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -1364,3 +1364,83 @@ body {
 .toast.info {
   border-color: rgba(59, 130, 246, 0.3);
 }
+
+/* PM2 Specific Styles */
+.pm2-id {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pm2-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 80px;
+}
+
+.pm2-metric-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pm2-metric-bar {
+  height: 4px;
+  background: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.pm2-metric-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width var(--transition-base) ease;
+}
+
+.pm2-metric-fill.cpu {
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+}
+
+.pm2-metric-fill.memory {
+  background: linear-gradient(90deg, var(--accent-green), var(--accent-cyan));
+}
+
+.pm2-restarts {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.pm2-restarts.warn {
+  background: var(--accent-yellow-glow);
+  color: var(--accent-yellow);
+}
+
+.pm2-logs-content {
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: 1px solid var(--border-color);
+}

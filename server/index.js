@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.js";
 import containersRouter from "./routes/containers.js";
 import imagesRouter from "./routes/images.js";
 import networksRouter from "./routes/networks.js";
+import pm2Router from "./routes/pm2.js";
 import systemRouter from "./routes/system.js";
 import volumesRouter from "./routes/volumes.js";
 
@@ -37,6 +38,7 @@ app.use("/api/images", authMiddleware, imagesRouter(docker));
 app.use("/api/volumes", authMiddleware, volumesRouter(docker));
 app.use("/api/networks", authMiddleware, networksRouter(docker));
 app.use("/api/system", authMiddleware, systemRouter(docker));
+app.use("/api/pm2", authMiddleware, pm2Router);
 
 // Serve static files in production
 const distPath = join(__dirname, "..", "dist");

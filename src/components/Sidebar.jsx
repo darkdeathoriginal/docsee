@@ -10,6 +10,7 @@ export default function Sidebar({ isOpen, onClose }) {
     { path: "/images", icon: "💿", label: "Images" },
     { path: "/volumes", icon: "💾", label: "Volumes" },
     { path: "/networks", icon: "🌐", label: "Networks" },
+    { path: "/pm2", icon: "⚙️", label: "PM2" },
   ];
 
   return (

@@ -97,6 +97,21 @@ export const api = {
     return new EventSource(`${API_BASE}/system/stats?token=${token}`);
   },
 
+  // PM2
+  getPm2Processes: () => request("/pm2"),
+  pm2Describe: (id) => request(`/pm2/${id}/describe`),
+  pm2Start: (id) => request(`/pm2/${id}/start`, { method: "POST" }),
+  pm2Stop: (id) => request(`/pm2/${id}/stop`, { method: "POST" }),
+  pm2Restart: (id) => request(`/pm2/${id}/restart`, { method: "POST" }),
+  pm2Reload: (id) => request(`/pm2/${id}/reload`, { method: "POST" }),
+  pm2Delete: (id) => request(`/pm2/${id}`, { method: "DELETE" }),
+  pm2Logs: (id, lines = 100) => request(`/pm2/${id}/logs?lines=${lines}`),
+  pm2Flush: (id) => request(`/pm2/${id}/flush`, { method: "POST" }),
+  streamPm2Stats: () => {
+    const token = getToken();
+    return new EventSource(`${API_BASE}/pm2/stream/stats?token=${token}`);
+  },
+
   // Pull with SSE (returns EventSource-like interface)
   pullImage: (image) => {
     const token = getToken();
