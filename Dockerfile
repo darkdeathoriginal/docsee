@@ -11,6 +11,7 @@ FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
+RUN npm install -g pm2
 COPY --from=build /app/dist ./dist
 COPY server ./server
 EXPOSE 3001
