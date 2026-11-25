@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import LogViewer from "../components/LogViewer";
 import Modal from "../components/Modal";
 import StatCard from "../components/StatCard";
 
@@ -11,8 +12,6 @@ export default function PM2() {
   const [filter, setFilter] = useState("all");
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [logsModal, setLogsModal] = useState(null);
-  const [logsContent, setLogsContent] = useState("");
-  const [logsLoading, setLogsLoading] = useState(false);
   const [detailModal, setDetailModal] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [error, setError] = useState(null);
@@ -91,26 +90,12 @@ export default function PM2() {
     setActionLoading((prev) => ({ ...prev, [id]: null }));
   }
 
-  async function openLogs(proc) {
+  function openLogs(proc) {
     setLogsModal(proc);
-    setLogsLoading(true);
-    setLogsContent("");
-    try {
-      const data = await api.pm2Logs(proc.pm_id, 200);
-      setLogsContent(data.logs || "No logs available");
-    } catch (err) {
-      setLogsContent("Failed to load logs: " + err.message);
-    }
-    setLogsLoading(false);
   }
 
   async function flushLogs(id) {
-    try {
-      await api.pm2Flush(id);
-      setLogsContent("Logs flushed successfully.");
-    } catch (err) {
-      console.error("Failed to flush logs:", err);
-    }
+    await api.pm2Flush(id);
   }
 
   async function openDetail(proc) {
@@ -524,37 +509,22 @@ export default function PM2() {
       {logsModal && (
         <Modal
           title={`Logs: ${logsModal.name}`}
+          className="modal-lg"
           onClose={() => setLogsModal(null)}
           footer={
-            <div className="flex gap-2">
-              <button
-                className="btn btn-ghost"
-                onClick={() => flushLogs(logsModal.pm_id)}
-              >
-                🗑 Flush Logs
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => openLogs(logsModal)}
-              >
-                🔄 Refresh
-              </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => setLogsModal(null)}
-              >
-                Close
-              </button>
-            </div>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setLogsModal(null)}
+            >
+              Close
+            </button>
           }
         >
-          {logsLoading ? (
-            <div style={{ textAlign: "center", padding: "20px" }}>
-              <div className="spinner" />
-            </div>
-          ) : (
-            <pre className="pm2-logs-content">{logsContent}</pre>
-          )}
+          <LogViewer
+            streamUrl={`/api/pm2/${logsModal.pm_id}/logs/stream`}
+            title={`Logs — ${logsModal.name}`}
+            onFlush={() => flushLogs(logsModal.pm_id)}
+          />
         </Modal>
       )}
 

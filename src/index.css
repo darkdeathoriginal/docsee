@@ -792,6 +792,10 @@ body {
   box-shadow: var(--shadow-extrude-lg);
 }
 
+.modal.modal-lg {
+  max-width: 900px;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -880,6 +884,10 @@ body {
   color: var(--text-secondary);
   word-break: break-all;
   padding: 1px 0;
+}
+
+.log-line.stderr {
+  color: #f87171;
 }
 
 .log-line:hover {

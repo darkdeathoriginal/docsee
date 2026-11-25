@@ -106,6 +106,12 @@ export const api = {
   pm2Reload: (id) => request(`/pm2/${id}/reload`, { method: "POST" }),
   pm2Delete: (id) => request(`/pm2/${id}`, { method: "DELETE" }),
   pm2Logs: (id, lines = 100) => request(`/pm2/${id}/logs?lines=${lines}`),
+  streamPm2Logs: (id, lines = 200) => {
+    const token = getToken();
+    return new EventSource(
+      `${API_BASE}/pm2/${id}/logs/stream?lines=${lines}&token=${token}`,
+    );
+  },
   pm2Flush: (id) => request(`/pm2/${id}/flush`, { method: "POST" }),
   streamPm2Stats: () => {
     const token = getToken();

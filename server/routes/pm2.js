@@ -1,10 +1,17 @@
 import { exec } from "child_process";
 import { Router } from "express";
+import { existsSync, watch } from "fs";
+import { open, stat } from "fs/promises";
+import { basename, dirname, join } from "path";
+import { StringDecoder } from "string_decoder";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
 const router = Router();
+
+const MAX_TAIL_BYTES = 256 * 1024; // Read at most 256KB for initial tail
+const READ_CHUNK_SIZE = 64 * 1024; // Read live updates in 64KB chunks
 
 // Helper to strip ANSI escape codes
 function stripAnsi(str) {
@@ -15,6 +22,65 @@ function stripAnsi(str) {
       // eslint-disable-next-line no-control-regex
       .replace(/\x1B\][^\x07]*\x07/g, "")
   );
+}
+
+// PM2 stores paths relative to original PM2_HOME on the host.
+// In Docker, host's ~/.pm2 is mounted to /host-pm2, so remap paths.
+function remapPath(logPath) {
+  if (!logPath) return null;
+  // eslint-disable-next-line no-undef
+  const pm2Home = process.env.PM2_HOME || "";
+  if (pm2Home) {
+    const fileName = logPath.split(/[/\\]/).pop();
+    const remapped = join(pm2Home, "logs", fileName);
+    if (existsSync(remapped) || !existsSync(logPath)) {
+      return remapped;
+    }
+  }
+  return logPath;
+}
+
+// Read the last N lines of a file and return both lines and current byte size
+async function readLastLines(filePath, maxLines) {
+  let handle;
+  try {
+    handle = await open(filePath, "r");
+    const fileStat = await handle.stat();
+    const size = fileStat.size;
+    if (size === 0) {
+      return { lines: [], size: 0 };
+    }
+
+    const bytesToRead = Math.min(size, MAX_TAIL_BYTES);
+    const startPos = size - bytesToRead;
+    // eslint-disable-next-line no-undef
+    const buffer = Buffer.alloc(bytesToRead);
+    const { bytesRead } = await handle.read(buffer, 0, bytesToRead, startPos);
+
+    let text = stripAnsi(buffer.subarray(0, bytesRead).toString("utf8"));
+    let lines = text.split(/\r?\n/);
+
+    // If we started in the middle of the file, drop the first potentially truncated line
+    if (startPos > 0 && lines.length > 1) {
+      lines.shift();
+    }
+
+    // Drop trailing empty entry caused by a final newline
+    if (lines.length > 0 && lines[lines.length - 1] === "") {
+      lines.pop();
+    }
+
+    return {
+      lines: lines.slice(-maxLines),
+      size,
+    };
+  } catch {
+    return { lines: [], size: 0 };
+  } finally {
+    if (handle) {
+      await handle.close().catch(() => {});
+    }
+  }
 }
 
 // Helper to run pm2 jlist and parse output
@@ -140,10 +206,10 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// Get logs for a process
+// Get logs for a process (snapshot)
 router.get("/:id/logs", async (req, res) => {
   try {
-    const lines = parseInt(req.query.lines) || 100;
+    const lines = Math.min(Math.max(parseInt(req.query.lines) || 100, 1), 1000);
     const processes = await getPm2List();
     const proc = processes.find(
       (p) => String(p.pm_id) === req.params.id || p.name === req.params.id,
@@ -153,56 +219,233 @@ router.get("/:id/logs", async (req, res) => {
       return res.status(404).json({ error: "Process not found" });
     }
 
-    // PM2 stores paths relative to original PM2_HOME on the host.
-    // In Docker, host's ~/.pm2 is mounted to /host-pm2, so remap paths.
-    // eslint-disable-next-line no-undef
-    const pm2Home = process.env.PM2_HOME || "";
-    const remapPath = (logPath) => {
-      if (!logPath) return null;
-      // If PM2_HOME is set and the log path doesn't start with it,
-      // extract the filename and look in PM2_HOME/logs/
-      if (pm2Home) {
-        const basename = logPath.split("/").pop();
-        return `${pm2Home}/logs/${basename}`;
-      }
-      return logPath;
-    };
-
     const outLogPath = remapPath(proc.pm2_env?.pm_out_log_path);
     const errLogPath = remapPath(proc.pm2_env?.pm_err_log_path);
     let logs = "";
 
     // Read out log
     if (outLogPath) {
-      try {
-        const { stdout: tail } = await execAsync(
-          `tail -n ${lines} "${outLogPath}"`,
-        );
-        if (tail.trim()) {
-          logs += "=== stdout ===\n" + tail;
-        }
-      } catch {
-        /* file may not exist yet */
+      const { lines: outLines } = await readLastLines(outLogPath, lines);
+      if (outLines.length > 0) {
+        logs += "=== stdout ===\n" + outLines.join("\n");
       }
     }
 
-    // Read err log
-    if (errLogPath) {
-      try {
-        const { stdout: tail } = await execAsync(
-          `tail -n ${lines} "${errLogPath}"`,
-        );
-        if (tail.trim()) {
-          logs += (logs ? "\n\n" : "") + "=== stderr ===\n" + tail;
-        }
-      } catch {
-        /* file may not exist yet */
+    // Read err log (skip if merged with out log)
+    if (errLogPath && errLogPath !== outLogPath) {
+      const { lines: errLines } = await readLastLines(errLogPath, lines);
+      if (errLines.length > 0) {
+        logs += (logs ? "\n\n" : "") + "=== stderr ===\n" + errLines.join("\n");
       }
     }
 
     res.json({ logs: logs || "No logs available" });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Stream live logs for a process (SSE stream)
+router.get("/:id/logs/stream", async (req, res) => {
+  try {
+    const lines = Math.min(Math.max(parseInt(req.query.lines) || 200, 1), 1000);
+    const processes = await getPm2List();
+    const proc = processes.find(
+      (p) => String(p.pm_id) === req.params.id || p.name === req.params.id,
+    );
+
+    if (!proc) {
+      return res.status(404).json({ error: "Process not found" });
+    }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders?.();
+
+    let closed = false;
+    const watchers = [];
+    let pollInterval = null;
+    let heartbeatInterval = null;
+
+    const cleanup = () => {
+      if (closed) return;
+      closed = true;
+      if (pollInterval) clearInterval(pollInterval);
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      for (const w of watchers) {
+        try {
+          w.close();
+        } catch {
+          /* ignore close errors */
+        }
+      }
+      watchers.length = 0;
+    };
+
+    req.on("close", cleanup);
+    res.on("close", cleanup);
+
+    const sendEvent = (payload) => {
+      if (closed || res.writableEnded) return;
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    };
+
+    const outLogPath = remapPath(proc.pm2_env?.pm_out_log_path);
+    const errLogPath = remapPath(proc.pm2_env?.pm_err_log_path);
+
+    const targets = [];
+    if (outLogPath) {
+      targets.push({ path: outLogPath, stream: "stdout" });
+    }
+    if (errLogPath && errLogPath !== outLogPath) {
+      targets.push({ path: errLogPath, stream: "stderr" });
+    }
+
+    // Initialize state and emit initial tail for each log file
+    const states = [];
+    for (const target of targets) {
+      const { lines: initialLines, size } = await readLastLines(
+        target.path,
+        lines,
+      );
+      if (closed) return;
+
+      for (const line of initialLines) {
+        sendEvent({ log: line, stream: target.stream });
+      }
+
+      states.push({
+        path: target.path,
+        fileName: basename(target.path),
+        dirName: dirname(target.path),
+        stream: target.stream,
+        offset: size,
+        remainder: "",
+        decoder: new StringDecoder("utf8"),
+        reading: false,
+        pending: false,
+      });
+    }
+
+    const checkUpdates = async (state) => {
+      if (closed) return;
+      if (state.reading) {
+        state.pending = true;
+        return;
+      }
+      state.reading = true;
+
+      let handle;
+      try {
+        const fileStat = await stat(state.path);
+        const currentSize = fileStat.size;
+
+        // Handle file truncation (e.g. pm2 flush) or log rotation
+        if (currentSize < state.offset) {
+          state.offset = 0;
+          state.remainder = "";
+          state.decoder = new StringDecoder("utf8");
+        }
+
+        if (currentSize > state.offset) {
+          handle = await open(state.path, "r");
+          while (state.offset < currentSize && !closed) {
+            const bytesToRead = Math.min(
+              READ_CHUNK_SIZE,
+              currentSize - state.offset,
+            );
+            // eslint-disable-next-line no-undef
+            const buffer = Buffer.alloc(bytesToRead);
+            const { bytesRead } = await handle.read(
+              buffer,
+              0,
+              bytesToRead,
+              state.offset,
+            );
+            if (bytesRead <= 0) break;
+
+            state.offset += bytesRead;
+            const text =
+              state.remainder + state.decoder.write(buffer.subarray(0, bytesRead));
+            const parts = text.split("\n");
+            state.remainder = parts.pop() || "";
+
+            for (const rawLine of parts) {
+              const cleaned = stripAnsi(rawLine.replace(/\r$/, ""));
+              if (cleaned.length > 0) {
+                sendEvent({ log: cleaned, stream: state.stream });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        if (err && err.code === "ENOENT") {
+          state.offset = 0;
+          state.remainder = "";
+          state.decoder = new StringDecoder("utf8");
+        }
+      } finally {
+        if (handle) {
+          await handle.close().catch(() => {});
+        }
+        state.reading = false;
+        if (state.pending && !closed) {
+          state.pending = false;
+          checkUpdates(state);
+        }
+      }
+    };
+
+    // Group states by directory and attach fs.watch for instant updates
+    const dirsToStates = new Map();
+    for (const state of states) {
+      if (!dirsToStates.has(state.dirName)) {
+        dirsToStates.set(state.dirName, []);
+      }
+      dirsToStates.get(state.dirName).push(state);
+    }
+
+    for (const [dir, dirStates] of dirsToStates.entries()) {
+      try {
+        if (existsSync(dir)) {
+          const watcher = watch(dir, (_eventType, filename) => {
+            if (closed) return;
+            for (const state of dirStates) {
+              if (!filename || filename === state.fileName) {
+                checkUpdates(state);
+              }
+            }
+          });
+          watcher.on("error", () => {});
+          watchers.push(watcher);
+        }
+      } catch {
+        /* fallback to polling interval */
+      }
+    }
+
+    // Polling fallback (handles Docker Desktop bind mounts, NFS, and files created later)
+    pollInterval = setInterval(() => {
+      if (closed) return;
+      for (const state of states) {
+        checkUpdates(state);
+      }
+    }, 500);
+
+    // Keep SSE connection alive through proxies
+    heartbeatInterval = setInterval(() => {
+      if (!closed && !res.writableEnded) {
+        res.write(": heartbeat\n\n");
+      }
+    }, 20000);
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    } else if (!res.writableEnded) {
+      res.end();
+    }
   }
 });
 
